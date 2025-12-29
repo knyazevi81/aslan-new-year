@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card hero">
+    <div class="hero-media">
+      <img
+        src="{{ url_for('static', path='images/landing.jpg') }}"
+        alt="Рекламная листовка: Новогоднее страхование деятельности Деда Мороза"
+        class="hero-image"
+      />
+    </div>
+
+    <div class="hero-actions">
+      <a class="btn btn-primary btn-block" href="/ui/start">Купить онлайн</a>
+    </div>
+  </div>
+{% endblock %}

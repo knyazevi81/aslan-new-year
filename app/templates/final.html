@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card">
+    <h1 class="h1" tabindex="-1">Ваш полис</h1>
+
+    {% if final_error %}
+      <div class="alert" role="alert">
+        <div class="alert-title">Полис пока не готов</div>
+        <div>{{ final_error }}</div>
+      </div>
+      <div class="actions-row">
+        <a class="btn btn-primary" href="/ui/payment">Вернуться к оплате</a>
+      </div>
+    {% endif %}
+
+    <div class="grid">
+      <div class="panel">
+        <div class="panel-title">Статус</div>
+        <div class="panel-value">{{ policy_status }}</div>
+
+        {% if policy_number %}
+          <div class="panel-row">Номер полиса: <b>{{ policy_number }}</b></div>
+        {% endif %}
+        {% if issued_at %}
+          <div class="panel-row">Дата оформления (UTC): <b>{{ issued_at }}</b></div>
+        {% endif %}
+
+        {% if policy_status == "PAID" and quote %}
+          <div class="actions-row">
+            <a class="btn btn-primary" href="/ui/policy.pdf">Скачать PDF</a>
+            <a class="btn" href="/ui/policy.contract">JSON-LD контракт</a>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Расчёт</div>
+        {% if quote %}
+          <div class="panel-row">Премия: <b>{{ quote.premium_total }}</b> {{ quote.currency }}</div>
+          <div class="panel-row">Тариф: <b>{{ quote.tariff_total }}</b></div>
+          <details class="details">
+            <summary>Детализация</summary>
+            <pre class="readonly-json">{{ quote.breakdown | tojson(indent=2) }}</pre>
+          </details>
+        {% else %}
+          <div class="panel-row">Нет расчёта — вернитесь и заполните поля.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="actions-row">
+      <a class="btn btn-ghost" href="/ui/conditions/step/1">Сделать ещё один полис</a>
+    </div>
+  </div>
+{% endblock %}

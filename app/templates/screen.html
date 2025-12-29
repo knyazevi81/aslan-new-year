@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block content %}
+
+  <div class="card">
+    <h1 id="page-title" class="h1" tabindex="-1">{{ title }}</h1>
+
+    {% if info %}
+      <div class="hint" aria-live="polite">{{ info }}</div>
+    {% endif %}
+
+    {% if summary and summary|length > 0 %}
+      <div class="alert" role="alert" aria-label="Ошибки">
+        <div class="alert-title">Магия не сработала — проверьте поля:</div>
+        <ul class="alert-list">
+          {% for it in summary %}
+            <li><a href="#{{ it.field_id }}">{{ it.message }}</a></li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <form method="post" class="form" novalidate>
+      <div class="fields">
+        {% for f in fields %}
+          {% set fid = f.field_id %}
+          {% set err = errors.get(fid) %}
+          <div class="field {% if err %}field-error{% endif %}">
+            {% if f.component in ["text","email","phone","number"] %}
+              <div class="control">
+                <input
+                  class="input"
+                  type="{% if f.component=='email' %}email{% elif f.component=='phone' %}tel{% elif f.component=='number' %}number{% else %}text{% endif %}"
+                  name="{{ fid }}"
+                  id="{{ fid }}"
+                  value="{{ f.value if f.value is not none else '' }}"
+                  placeholder=" "
+                  {% if f.required %}required{% endif %}
+                  {% if f.constraints.min is defined %}min="{{ f.constraints.min }}"{% endif %}
+                  {% if f.constraints.max is defined %}max="{{ f.constraints.max }}"{% endif %}
+                  {% if f.constraints.step is defined %}step="{{ f.constraints.step }}"{% endif %}
+                  {% if f.constraints.min_length is defined %}minlength="{{ f.constraints.min_length }}"{% endif %}
+                  {% if f.constraints.max_length is defined %}maxlength="{{ f.constraints.max_length }}"{% endif %}
+                >
+                <label class="label" for="{{ fid }}">{{ f.label }}</label>
+              </div>
+
+            {% elif f.component == "select" %}
+              <div class="control">
+                <label class="label-static" for="{{ fid }}">{{ f.label }}</label>
+                <select class="select" name="{{ fid }}" id="{{ fid }}" {% if f.required %}required{% endif %}>
+                  <option value="">— выберите —</option>
+                  {% for opt in f.options %}
+                    <option value="{{ opt.id }}" {% if f.value==opt.id %}selected{% endif %}>{{ opt.label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+            {% elif f.component in ["checkbox_group", "card_multiselect"] %}
+              <fieldset class="fieldset">
+                <legend class="legend">{{ f.label }}</legend>
+                <div class="{% if f.component=='card_multiselect' %}cards{% else %}checks{% endif %}">
+                  {% for opt in f.options %}
+                    {% set checked = (f.value and (opt.id in f.value)) %}
+                    <label class="{% if f.component=='card_multiselect' %}opt-card{% else %}check{% endif %}">
+                      <input class="check-input" type="checkbox" name="{{ fid }}" value="{{ opt.id }}" {% if checked %}checked{% endif %}>
+                      <span class="check-text">{{ opt.label }}</span>
+                    </label>
+                  {% endfor %}
+                </div>
+              </fieldset>
+
+            {% elif f.component == "slider" %}
+              <fieldset class="fieldset">
+                <legend class="legend">{{ f.label }}</legend>
+                {% set _val = (f.value if f.value is not none else f.constraints.min) %}
+                <input
+                  class="range"
+                  type="range"
+                  name="{{ fid }}"
+                  id="{{ fid }}"
+                  value="{{ _val }}"
+                  min="{{ f.constraints.min }}"
+                  max="{{ f.constraints.max }}"
+                  step="{{ f.constraints.step }}"
+                  data-output="{{ fid }}__out"
+                  aria-describedby="{{ fid }}__hint"
+                >
+                <div id="{{ fid }}__hint" class="range-hint" aria-live="polite">
+                  Текущее значение: <b id="{{ fid }}__out">{{ _val }}</b>
+                </div>
+              </fieldset>
+
+            {% elif f.component in ["money_readonly", "number_readonly", "text_readonly"] %}
+              <div class="readonly">
+                <div class="readonly-label">{{ f.label }}</div>
+                <div class="readonly-value">
+                  {% if fid == "FLD_PREMIUM_TOTAL" %}
+                    {{ quote.premium_total if quote else "—" }}
+                  {% elif fid == "FLD_TARIFF_TOTAL" %}
+                    {{ quote.tariff_total if quote else "—" }}
+                  {% else %}
+                    {{ f.value if f.value is not none else "—" }}
+                  {% endif %}
+                </div>
+              </div>
+
+            {% elif f.component == "json_readonly" %}
+              <div class="readonly">
+                <div class="readonly-label">{{ f.label }}</div>
+                <pre class="readonly-json">{% if quote and quote.breakdown %}{{ quote.breakdown | tojson(indent=2) }}{% else %}{}{% endif %}</pre>
+              </div>
+
+            {% else %}
+              <div class="hint">Неподдерживаемый компонент: {{ f.component }}</div>
+            {% endif %}
+
+            {% if err %}
+              <div class="error" role="alert">{{ err }}</div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="footer-spacer"></div>
+
+      <div class="sticky-footer">
+        <div class="sticky-inner container">
+          {% if back_url %}
+            <a class="btn btn-ghost" href="{{ back_url }}">Назад</a>
+          {% else %}
+            <span></span>
+          {% endif %}
+
+          <div class="sticky-actions">
+            {% if show_pay_button %}
+              <button class="btn" type="submit" name="action" value="ACT_PAY">Оплатить</button>
+            {% endif %}
+            <button class="btn btn-primary" type="submit">{{ next_label }}</button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+
+{% endblock %}

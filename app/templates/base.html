@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ title or "Новогодняя страховая компания" }}</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="app-header" role="banner">
+    <div class="container header-row">
+      <div class="brand">
+        <div class="brand-title">Новогодняя страховая компания</div>
+        <div class="brand-subtitle">Демо-полис: страхование деятельности Деда Мороза</div>
+      </div>
+
+      <form action="/ui/reset" method="post">
+        <button class="btn btn-ghost" type="submit" aria-label="Сбросить магию">Сбросить</button>
+      </form>
+    </div>
+
+    {% if steps %}
+      <nav class="stepper" aria-label="Прогресс оформления">
+        <ol class="stepper-list">
+          {% for s in steps %}
+            <li class="stepper-item stepper-{{ s.status }}">
+              <span class="stepper-dot" aria-hidden="true"></span>
+              <a class="stepper-link" href="{{ s.url }}" aria-current="{% if s.status=='current' %}step{% else %}false{% endif %}">
+                {{ s.title }}
+              </a>
+            </li>
+          {% endfor %}
+        </ol>
+      </nav>
+    {% endif %}
+  </header>
+
+  <main class="container main" role="main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="container footer"></footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>

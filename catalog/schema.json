@@ -1,0 +1,915 @@
+{
+  "meta": {
+    "schema_name": "insurance_santa_property_inspection",
+    "schema_version": "1.0.0",
+    "locale": "ru-RU",
+    "currency": "RUB",
+    "engine": {
+      "expression_language": "simple-js",
+      "expression_notes": {
+        "helpers": [
+          "includes(arrayOrString, value)",
+          "anySelected(array)",
+          "count(array)",
+          "coalesce(a,b,...)"
+        ],
+        "context": {
+          "answers": "Map<field_id, any>",
+          "computed": "Map<computed_id, any>",
+          "pricing": "Pricing accumulator state"
+        }
+      }
+    }
+  },
+  "dictionaries": {
+    "DICT_INSURANCE_OBJECTS": {
+      "id": "DICT_INSURANCE_OBJECTS",
+      "items": [
+        { "id": "OBJ_SANTA", "label": "Дед Мороз" },
+        { "id": "OBJ_SLED", "label": "Сани" },
+        { "id": "OBJ_BAG", "label": "Мешок с подарками" },
+        { "id": "OBJ_REINDEER", "label": "Олени" },
+        { "id": "OBJ_ELVES", "label": "Эльфы" },
+        { "id": "OBJ_PROD_BREAK", "label": "Перерыв в производственной деятельности" },
+        { "id": "OBJ_TPL", "label": "Ответственность перед третьими лицами" },
+        { "id": "OBJ_ALL_RISKS", "label": "От всех рисков" }
+      ]
+    },
+    "DICT_SLED_TYPES": {
+      "id": "DICT_SLED_TYPES",
+      "items": [
+        { "id": "SLED_MANUAL", "label": "С ручным управлением", "meta": { "risk_note": "Повышенный риск аварии/ущерба третьим лицам" } },
+        { "id": "SLED_AUTOPILOT", "label": "С автопилотом" }
+      ]
+    },
+    "DICT_BAG_TYPES": {
+      "id": "DICT_BAG_TYPES",
+      "items": [
+        { "id": "BAG_FABRIC", "label": "Тканевый", "meta": { "risk_note": "Повышенный риск дырки и утери подарков" } },
+        { "id": "BAG_ARMORED_THREAD", "label": "Из армированной нити" }
+      ]
+    },
+    "DICT_COMMON_FLAGS_PUNCH_CORP": {
+      "id": "DICT_COMMON_FLAGS_PUNCH_CORP",
+      "items": [
+        { "id": "FLAG_PUNCH_TENDENCY", "label": "Есть склонность к пуншу" },
+        { "id": "FLAG_CORP_DEC30", "label": "Корпоратив 30 декабря" }
+      ]
+    },
+    "DICT_PROD_BREAK_FLAGS": {
+      "id": "DICT_PROD_BREAK_FLAGS",
+      "items": [
+        { "id": "PB_PUNCH_TENDENCY", "label": "Склонность сотрудников к пуншу" },
+        { "id": "PB_CORP_DEC30", "label": "Корпоратив 30 декабря" },
+        { "id": "PB_ILLEGAL_ELVES", "label": "Наличие эльфов нелегалов" }
+      ]
+    },
+    "DICT_TPL_PARKING": {
+      "id": "DICT_TPL_PARKING",
+      "items": [
+        { "id": "PARK_ROOFS", "label": "Крыши домов", "meta": { "tariff": "STANDARD" } },
+        { "id": "PARK_YARDS", "label": "Дворы", "meta": { "tariff": "STANDARD" } },
+        { "id": "PARK_BALCONIES", "label": "Балконы", "meta": { "tariff": "STANDARD" } },
+        { "id": "PARK_WHEREVER", "label": "Где получится", "meta": { "tariff": "INCREASED", "risk_note": "Повышенный риск" } }
+      ]
+    },
+    "DICT_RISK_CATEGORIES": {
+      "id": "DICT_RISK_CATEGORIES",
+      "items": [
+        { "id": "RC_SLED", "label": "Сани", "object_gate": "OBJ_SLED" },
+        { "id": "RC_REINDEER", "label": "Олени", "object_gate": "OBJ_REINDEER" },
+        { "id": "RC_BAG", "label": "Мешок с подарками", "object_gate": "OBJ_BAG" },
+        { "id": "RC_ELVES", "label": "Эльфы", "object_gate": "OBJ_ELVES" },
+        { "id": "RC_PROD_BREAK", "label": "Перерыв в производстве", "object_gate": "OBJ_PROD_BREAK" },
+        { "id": "RC_TPL", "label": "Ответственность перед третьими лицами", "object_gate": "OBJ_TPL" },
+        { "id": "RC_FORCE_MAJEURE", "label": "Форс-мажоры", "object_gate": null }
+      ]
+    },
+    "DICT_RISKS": {
+      "id": "DICT_RISKS",
+      "items": [
+        { "id": "R_SLED_HARD_LANDING_BREAK", "category_id": "RC_SLED", "label": "Поломка при жёсткой посадке", "weight": 1 },
+        { "id": "R_SLED_FROZEN_TO_ROOF", "category_id": "RC_SLED", "label": "Примерзание к крыше", "weight": 1 },
+        { "id": "R_SLED_BAD_PARK_DAMAGE", "category_id": "RC_SLED", "label": "Повреждение при неудачной парковке", "weight": 1 },
+        { "id": "R_SLED_NAV_ISSUES", "category_id": "RC_SLED", "label": "Проблемы с навигацией", "weight": 1 },
+
+        { "id": "R_REINDEER_OVERWORK", "category_id": "RC_REINDEER", "label": "Переутомление", "weight": 1 },
+        { "id": "R_REINDEER_LOST", "category_id": "RC_REINDEER", "label": "Потеря ориентации", "weight": 1 },
+        { "id": "R_REINDEER_BITE_COLLEAGUE", "category_id": "RC_REINDEER", "label": "Укус коллеги", "weight": 1 },
+        { "id": "R_REINDEER_VACATION_AWOL", "category_id": "RC_REINDEER", "label": "Самовольный уход в отпуск", "weight": 1 },
+
+        { "id": "R_BAG_LOST_ALL", "category_id": "RC_BAG", "label": "Утеря всего мешка", "weight": 3 },
+        { "id": "R_BAG_DEFECT_UP_TO_30", "category_id": "RC_BAG", "label": "Брак до 30% подарков", "weight": 2 },
+        { "id": "R_BAG_DEFECT_UP_TO_10", "category_id": "RC_BAG", "label": "Брак до 10% подарков", "weight": 1 },
+
+        { "id": "R_ELVES_INJURY_PACKING", "category_id": "RC_ELVES", "label": "Травма при упаковке подарков", "weight": 1 },
+        { "id": "R_ELVES_MIGRAINE", "category_id": "RC_ELVES", "label": "Мигрень (перепил пунш накануне)", "weight": 1 },
+        { "id": "R_ELVES_MASS_FIGHT", "category_id": "RC_ELVES", "label": "Массовая драка", "weight": 1 },
+        { "id": "R_ELVES_BURNOUT_DEC25", "category_id": "RC_ELVES", "label": "Профессиональное выгорание к 25 декабря", "weight": 1 },
+
+        { "id": "R_PB_KEY_ELF_NO_SHOW", "category_id": "RC_PROD_BREAK", "label": "Ключевой эльф не вышел в смену (ушел к конкуренту)", "weight": 1 },
+        { "id": "R_PB_OVERSLEPT", "category_id": "RC_PROD_BREAK", "label": "Эльфы проспали смену (караоке до утра)", "weight": 1 },
+        { "id": "R_PB_STRIKE_REMOTE", "category_id": "RC_PROD_BREAK", "label": "Забастовка эльфов за право на удалёнку", "weight": 1 },
+        { "id": "R_PB_POWER_OFF", "category_id": "RC_PROD_BREAK", "label": "Вырубили электричество (линия упаковки встала)", "weight": 1 },
+        { "id": "R_PB_MIGRATION_RAID", "category_id": "RC_PROD_BREAK", "label": "Облава миграционной службы", "weight": 1 },
+
+        { "id": "R_TPL_ROOF_DAMAGE", "category_id": "RC_TPL", "label": "Повреждение крыши", "weight": 1 },
+        { "id": "R_TPL_BALCONY_SCRATCH", "category_id": "RC_TPL", "label": "Поцарапанный балкон", "weight": 1 },
+        { "id": "R_TPL_ANTENNA_BROKEN", "category_id": "RC_TPL", "label": "Сломанная антенна", "weight": 1 },
+        { "id": "R_TPL_NEIGHBORS_SCARED", "category_id": "RC_TPL", "label": "Испуганные соседи", "weight": 1 },
+        { "id": "R_TPL_CHIMNEY_LEAK", "category_id": "RC_TPL", "label": "Протечка дымохода", "weight": 1 },
+
+        { "id": "R_FM_CAT_ATTACK", "category_id": "RC_FORCE_MAJEURE", "label": "Нападение кота", "weight": 1 },
+        { "id": "R_FM_SOCIAL_PHOTO_REPUTATION", "category_id": "RC_FORCE_MAJEURE", "label": "Фото в соцсетях (репутационный риск)", "weight": 1 },
+        { "id": "R_FM_GIFTS_MIXED", "category_id": "RC_FORCE_MAJEURE", "label": "Подарки перепутали", "weight": 1 },
+        { "id": "R_FM_HIRE_FREELANCE_ELVES", "category_id": "RC_FORCE_MAJEURE", "label": "Срочный найм фриланс-эльфов", "weight": 1 }
+      ]
+    },
+    "DICT_PAYMENT_METHODS": {
+      "id": "DICT_PAYMENT_METHODS",
+      "items": [
+        { "id": "PAY_GOLD", "label": "Золотом" },
+        { "id": "PAY_GIFTS", "label": "Подарками" },
+        { "id": "PAY_CASH", "label": "Наличными" },
+        { "id": "PAY_CARD", "label": "Картой" }
+      ]
+    }
+  },
+  "data_schema": {
+    "tables": [
+      {
+        "table": "policy",
+        "pk": ["policy_id"],
+        "columns": [
+          { "name": "policy_id", "type": "uuid", "nullable": false },
+          { "name": "created_at", "type": "timestamp", "nullable": false },
+          { "name": "insured_sum", "type": "int", "nullable": true },
+          { "name": "deductible", "type": "int", "nullable": true },
+          { "name": "coverage_limit", "type": "int", "nullable": true },
+          { "name": "premium_total", "type": "int", "nullable": true },
+          { "name": "tariff_total", "type": "decimal", "nullable": true },
+          { "name": "status", "type": "string", "nullable": false, "default": "DRAFT" }
+        ]
+      },
+      {
+        "table": "policy_object",
+        "pk": ["policy_id", "object_id"],
+        "fk": [{ "columns": ["policy_id"], "ref_table": "policy", "ref_columns": ["policy_id"] }],
+        "columns": [
+          { "name": "policy_id", "type": "uuid", "nullable": false },
+          { "name": "object_id", "type": "string", "nullable": false }
+        ]
+      },
+      {
+        "table": "santa_details",
+        "pk": ["policy_id"],
+        "fk": [{ "columns": ["policy_id"], "ref_table": "policy", "ref_columns": ["policy_id"] }],
+        "columns": [
+          { "name": "policy_id", "type": "uuid", "nullable": false },
+          { "name": "age", "type": "int", "nullable": true },
+          { "name": "weight_kg", "type": "int", "nullable": true },
+          { "name": "waist_cm", "type": "int", "nullable": true },
+          { "name": "cold_risk_level", "type": "string", "nullable": true },
+          { "name": "chimney_stuck_risk", "type": "string", "nullable": true }
+        ]
+      },
+      {
+        "table": "sled_details",
+        "pk": ["policy_id"],
+        "fk": [{ "columns": ["policy_id"], "ref_table": "policy", "ref_columns": ["policy_id"] }],
+        "columns": [
+          { "name": "policy_id", "type": "uuid", "nullable": false },
+          { "name": "sled_type_id", "type": "string", "nullable": true }
+        ]
+      },
+      {
+        "table": "bag_details",
+        "pk": ["policy_id"],
+        "fk": [{ "columns": ["policy_id"], "ref_table": "policy", "ref_columns": ["policy_id"] }],
+        "columns": [
+          { "name": "policy_id", "type": "uuid", "nullable": false },
+          { "name": "bag_type_id", "type": "string", "nullable": true }
+        ]
+      },
+      {
+        "table": "reindeer_details",
+        "pk": ["policy_id"],
+        "fk": [{ "columns": ["policy_id"], "ref_table": "policy", "ref_columns": ["policy_id"] }],
+        "columns": [
+          { "name": "policy_id", "type": "uuid", "nullable": false },
+          { "name": "reindeer_count", "type": "int", "nullable": true }
+        ]
+      },
+      {
+        "table": "reindeer_flag",
+        "pk": ["policy_id", "flag_id"],
+        "fk": [{ "columns": ["policy_id"], "ref_table": "policy", "ref_columns": ["policy_id"] }],
+        "columns": [
+          { "name": "policy_id", "type": "uuid", "nullable": false },
+          { "name": "flag_id", "type": "string", "nullable": false }
+        ]
+      },
+      {
+        "table": "elves_details",
+        "pk": ["policy_id"],
+        "fk": [{ "columns": ["policy_id"], "ref_table": "policy", "ref_columns": ["policy_id"] }],
+        "columns": [
+          { "name": "policy_id", "type": "uuid", "nullable": false },
+          { "name": "elves_count", "type": "int", "nullable": true }
+        ]
+      },
+      {
+        "table": "elves_flag",
+        "pk": ["policy_id", "flag_id"],
+        "fk": [{ "columns": ["policy_id"], "ref_table": "policy", "ref_columns": ["policy_id"] }],
+        "columns": [
+          { "name": "policy_id", "type": "uuid", "nullable": false },
+          { "name": "flag_id", "type": "string", "nullable": false }
+        ]
+      },
+      {
+        "table": "prod_break_flag",
+        "pk": ["policy_id", "flag_id"],
+        "fk": [{ "columns": ["policy_id"], "ref_table": "policy", "ref_columns": ["policy_id"] }],
+        "columns": [
+          { "name": "policy_id", "type": "uuid", "nullable": false },
+          { "name": "flag_id", "type": "string", "nullable": false }
+        ]
+      },
+      {
+        "table": "tpl_parking",
+        "pk": ["policy_id", "parking_id"],
+        "fk": [{ "columns": ["policy_id"], "ref_table": "policy", "ref_columns": ["policy_id"] }],
+        "columns": [
+          { "name": "policy_id", "type": "uuid", "nullable": false },
+          { "name": "parking_id", "type": "string", "nullable": false }
+        ]
+      },
+      {
+        "table": "policy_risk",
+        "pk": ["policy_id", "risk_id"],
+        "fk": [{ "columns": ["policy_id"], "ref_table": "policy", "ref_columns": ["policy_id"] }],
+        "columns": [
+          { "name": "policy_id", "type": "uuid", "nullable": false },
+          { "name": "risk_id", "type": "string", "nullable": false }
+        ]
+      },
+      {
+        "table": "policyholder",
+        "pk": ["policy_id"],
+        "fk": [{ "columns": ["policy_id"], "ref_table": "policy", "ref_columns": ["policy_id"] }],
+        "columns": [
+          { "name": "policy_id", "type": "uuid", "nullable": false },
+          { "name": "full_name", "type": "string", "nullable": true },
+          { "name": "phone", "type": "string", "nullable": true },
+          { "name": "email", "type": "string", "nullable": true }
+        ]
+      },
+      {
+        "table": "payment",
+        "pk": ["policy_id"],
+        "fk": [{ "columns": ["policy_id"], "ref_table": "policy", "ref_columns": ["policy_id"] }],
+        "columns": [
+          { "name": "policy_id", "type": "uuid", "nullable": false },
+          { "name": "payment_method_id", "type": "string", "nullable": true },
+          { "name": "payment_status", "type": "string", "nullable": false, "default": "NOT_PAID" }
+        ]
+      }
+    ]
+  },
+  "inventory": {
+    "screens": [
+      { "screen_id": "SCR_01_CONDITIONS", "title": "Условия страхования", "order": 1 },
+      { "screen_id": "SCR_03_RISKS", "title": "Риски", "order": 2 },
+      { "screen_id": "SCR_04_CALC", "title": "Калькулятор", "order": 3 },
+      { "screen_id": "SCR_05_CONTACTS", "title": "Контактные данные", "order": 4 },
+      { "screen_id": "SCR_06_PAYMENT", "title": "Оплата", "order": 5 }
+    ],
+    "fields": [
+      {
+        "field_id": "FLD_OBJECTS_SELECTED",
+        "screen_id": "SCR_01_CONDITIONS",
+        "step": "STEP_01",
+        "label": "Объект страхования",
+        "component": "checkbox_group",
+        "data_type": "string[]",
+        "dictionary_id": "DICT_INSURANCE_OBJECTS",
+        "required": true,
+        "storage": { "table": "policy_object", "mode": "link_table", "columns": { "policy_id": "policy.policy_id", "value": "object_id" } }
+      },
+
+      {
+        "field_id": "FLD_SANTA_AGE",
+        "screen_id": "SCR_01_CONDITIONS",
+        "step": "STEP_02",
+        "label": "Возраст",
+        "component": "number",
+        "data_type": "int",
+        "required": false,
+        "constraints": { "min": 0, "max": 130 },
+        "storage": { "table": "santa_details", "column": "age" }
+      },
+      {
+        "field_id": "FLD_SANTA_WEIGHT",
+        "screen_id": "SCR_01_CONDITIONS",
+        "step": "STEP_02",
+        "label": "Вес (кг)",
+        "component": "number",
+        "data_type": "int",
+        "required": false,
+        "constraints": { "min": 0, "max": 400 },
+        "storage": { "table": "santa_details", "column": "weight_kg" }
+      },
+      {
+        "field_id": "FLD_SANTA_WAIST",
+        "screen_id": "SCR_01_CONDITIONS",
+        "step": "STEP_02",
+        "label": "Окружность талии (см)",
+        "component": "number",
+        "data_type": "int",
+        "required": false,
+        "constraints": { "min": 0, "max": 300 },
+        "storage": { "table": "santa_details", "column": "waist_cm" }
+      },
+
+      {
+        "field_id": "FLD_SLED_TYPE",
+        "screen_id": "SCR_01_CONDITIONS",
+        "step": "STEP_02",
+        "label": "Тип саней",
+        "component": "select",
+        "data_type": "string",
+        "dictionary_id": "DICT_SLED_TYPES",
+        "required": false,
+        "storage": { "table": "sled_details", "column": "sled_type_id" }
+      },
+
+      {
+        "field_id": "FLD_BAG_TYPE",
+        "screen_id": "SCR_01_CONDITIONS",
+        "step": "STEP_02",
+        "label": "Тип мешка",
+        "component": "select",
+        "data_type": "string",
+        "dictionary_id": "DICT_BAG_TYPES",
+        "required": false,
+        "storage": { "table": "bag_details", "column": "bag_type_id" }
+      },
+
+      {
+        "field_id": "FLD_REINDEER_COUNT",
+        "screen_id": "SCR_01_CONDITIONS",
+        "step": "STEP_02",
+        "label": "Количество оленей",
+        "component": "slider",
+        "data_type": "int",
+        "required": false,
+        "constraints": { "min": 1, "max": 12, "step": 1 },
+        "storage": { "table": "reindeer_details", "column": "reindeer_count" }
+      },
+      {
+        "field_id": "FLD_REINDEER_FLAGS",
+        "screen_id": "SCR_01_CONDITIONS",
+        "step": "STEP_02",
+        "label": "Доп. параметры",
+        "component": "checkbox_group",
+        "data_type": "string[]",
+        "dictionary_id": "DICT_COMMON_FLAGS_PUNCH_CORP",
+        "required": false,
+        "storage": { "table": "reindeer_flag", "mode": "link_table", "columns": { "policy_id": "policy.policy_id", "value": "flag_id" } }
+      },
+
+      {
+        "field_id": "FLD_ELVES_COUNT",
+        "screen_id": "SCR_01_CONDITIONS",
+        "step": "STEP_02",
+        "label": "Количество эльфов",
+        "component": "slider",
+        "data_type": "int",
+        "required": false,
+        "constraints": { "min": 0, "max": 500, "step": 1 },
+        "storage": { "table": "elves_details", "column": "elves_count" }
+      },
+      {
+        "field_id": "FLD_ELVES_FLAGS",
+        "screen_id": "SCR_01_CONDITIONS",
+        "step": "STEP_02",
+        "label": "Доп. параметры",
+        "component": "checkbox_group",
+        "data_type": "string[]",
+        "dictionary_id": "DICT_COMMON_FLAGS_PUNCH_CORP",
+        "required": false,
+        "storage": { "table": "elves_flag", "mode": "link_table", "columns": { "policy_id": "policy.policy_id", "value": "flag_id" } }
+      },
+
+      {
+        "field_id": "FLD_PROD_BREAK_FLAGS",
+        "screen_id": "SCR_01_CONDITIONS",
+        "step": "STEP_02",
+        "label": "Параметры перерыва в производственной деятельности",
+        "component": "checkbox_group",
+        "data_type": "string[]",
+        "dictionary_id": "DICT_PROD_BREAK_FLAGS",
+        "required": false,
+        "storage": { "table": "prod_break_flag", "mode": "link_table", "columns": { "policy_id": "policy.policy_id", "value": "flag_id" } }
+      },
+
+      {
+        "field_id": "FLD_TPL_PARKING",
+        "screen_id": "SCR_01_CONDITIONS",
+        "step": "STEP_02",
+        "label": "Парковка саней",
+        "component": "checkbox_group",
+        "data_type": "string[]",
+        "dictionary_id": "DICT_TPL_PARKING",
+        "required": false,
+        "storage": { "table": "tpl_parking", "mode": "link_table", "columns": { "policy_id": "policy.policy_id", "value": "parking_id" } }
+      },
+
+      {
+        "field_id": "FLD_INSURED_SUM",
+        "screen_id": "SCR_01_CONDITIONS",
+        "step": "STEP_03",
+        "label": "Страховая сумма",
+        "component": "slider",
+        "data_type": "int",
+        "required": true,
+        "constraints": { "min": 500000, "max": 10000000, "step": 10000 },
+        "storage": { "table": "policy", "column": "insured_sum" }
+      },
+      {
+        "field_id": "FLD_DEDUCTIBLE",
+        "screen_id": "SCR_01_CONDITIONS",
+        "step": "STEP_03",
+        "label": "Франшиза",
+        "component": "slider",
+        "data_type": "int",
+        "required": true,
+        "constraints": { "min": 0, "max": 500000, "step": 10000 },
+        "storage": { "table": "policy", "column": "deductible" }
+      },
+      {
+        "field_id": "FLD_COVERAGE_LIMIT",
+        "screen_id": "SCR_01_CONDITIONS",
+        "step": "STEP_03",
+        "label": "Лимит покрытия",
+        "component": "slider",
+        "data_type": "int",
+        "required": true,
+        "constraints": { "min": 500000, "max": 10000000, "step": 10000 },
+        "storage": { "table": "policy", "column": "coverage_limit" }
+      },
+
+      {
+        "field_id": "FLD_RISKS_SLED",
+        "screen_id": "SCR_03_RISKS",
+        "label": "🛷 Сани",
+        "component": "card_multiselect",
+        "data_type": "string[]",
+        "dictionary_id": "DICT_RISKS",
+        "dictionary_filter": { "by": "category_id", "equals": "RC_SLED" },
+        "required": false,
+        "storage": { "table": "policy_risk", "mode": "link_table", "columns": { "policy_id": "policy.policy_id", "value": "risk_id" } }
+      },
+      {
+        "field_id": "FLD_RISKS_REINDEER",
+        "screen_id": "SCR_03_RISKS",
+        "label": "🦌 Олени",
+        "component": "card_multiselect",
+        "data_type": "string[]",
+        "dictionary_id": "DICT_RISKS",
+        "dictionary_filter": { "by": "category_id", "equals": "RC_REINDEER" },
+        "required": false,
+        "storage": { "table": "policy_risk", "mode": "link_table", "columns": { "policy_id": "policy.policy_id", "value": "risk_id" } }
+      },
+      {
+        "field_id": "FLD_RISKS_BAG",
+        "screen_id": "SCR_03_RISKS",
+        "label": "Мешок с подарками",
+        "component": "card_multiselect",
+        "data_type": "string[]",
+        "dictionary_id": "DICT_RISKS",
+        "dictionary_filter": { "by": "category_id", "equals": "RC_BAG" },
+        "required": false,
+        "storage": { "table": "policy_risk", "mode": "link_table", "columns": { "policy_id": "policy.policy_id", "value": "risk_id" } }
+      },
+      {
+        "field_id": "FLD_RISKS_ELVES",
+        "screen_id": "SCR_03_RISKS",
+        "label": "🧝 Эльфы",
+        "component": "card_multiselect",
+        "data_type": "string[]",
+        "dictionary_id": "DICT_RISKS",
+        "dictionary_filter": { "by": "category_id", "equals": "RC_ELVES" },
+        "required": false,
+        "storage": { "table": "policy_risk", "mode": "link_table", "columns": { "policy_id": "policy.policy_id", "value": "risk_id" } }
+      },
+      {
+        "field_id": "FLD_RISKS_PROD_BREAK",
+        "screen_id": "SCR_03_RISKS",
+        "label": "🏭 Перерыв в производстве",
+        "component": "card_multiselect",
+        "data_type": "string[]",
+        "dictionary_id": "DICT_RISKS",
+        "dictionary_filter": { "by": "category_id", "equals": "RC_PROD_BREAK" },
+        "required": false,
+        "storage": { "table": "policy_risk", "mode": "link_table", "columns": { "policy_id": "policy.policy_id", "value": "risk_id" } }
+      },
+      {
+        "field_id": "FLD_RISKS_TPL",
+        "screen_id": "SCR_03_RISKS",
+        "label": "🏠 Ответственность перед третьими лицами",
+        "component": "card_multiselect",
+        "data_type": "string[]",
+        "dictionary_id": "DICT_RISKS",
+        "dictionary_filter": { "by": "category_id", "equals": "RC_TPL" },
+        "required": false,
+        "storage": { "table": "policy_risk", "mode": "link_table", "columns": { "policy_id": "policy.policy_id", "value": "risk_id" } }
+      },
+      {
+        "field_id": "FLD_RISKS_FORCE_MAJEURE",
+        "screen_id": "SCR_03_RISKS",
+        "label": "🐱 Форс-мажоры",
+        "component": "card_multiselect",
+        "data_type": "string[]",
+        "dictionary_id": "DICT_RISKS",
+        "dictionary_filter": { "by": "category_id", "equals": "RC_FORCE_MAJEURE" },
+        "required": false,
+        "storage": { "table": "policy_risk", "mode": "link_table", "columns": { "policy_id": "policy.policy_id", "value": "risk_id" } }
+      },
+
+      {
+        "field_id": "FLD_PREMIUM_TOTAL",
+        "screen_id": "SCR_04_CALC",
+        "label": "Итоговая страховая премия",
+        "component": "money_readonly",
+        "data_type": "int",
+        "required": false,
+        "read_only": true,
+        "storage": { "table": "policy", "column": "premium_total" }
+      },
+      {
+        "field_id": "FLD_TARIFF_TOTAL",
+        "screen_id": "SCR_04_CALC",
+        "label": "Итоговый страховой тариф",
+        "component": "number_readonly",
+        "data_type": "decimal",
+        "required": false,
+        "read_only": true,
+        "storage": { "table": "policy", "column": "tariff_total" }
+      },
+      {
+        "field_id": "FLD_TARIFF_BREAKDOWN",
+        "screen_id": "SCR_04_CALC",
+        "label": "Детализация расчёта",
+        "component": "json_readonly",
+        "data_type": "object",
+        "required": false,
+        "read_only": true,
+        "storage": { "table": "policy", "column": null }
+      },
+
+      {
+        "field_id": "FLD_POLICYHOLDER_NAME",
+        "screen_id": "SCR_05_CONTACTS",
+        "label": "ФИО страхователя",
+        "component": "text",
+        "data_type": "string",
+        "required": true,
+        "constraints": { "min_length": 3, "max_length": 200 },
+        "storage": { "table": "policyholder", "column": "full_name" }
+      },
+      {
+        "field_id": "FLD_POLICYHOLDER_PHONE",
+        "screen_id": "SCR_05_CONTACTS",
+        "label": "Номер телефона",
+        "component": "phone",
+        "data_type": "string",
+        "required": true,
+        "storage": { "table": "policyholder", "column": "phone" }
+      },
+      {
+        "field_id": "FLD_POLICYHOLDER_EMAIL",
+        "screen_id": "SCR_05_CONTACTS",
+        "label": "Эл. почта",
+        "component": "email",
+        "data_type": "string",
+        "required": true,
+        "storage": { "table": "policyholder", "column": "email" }
+      },
+
+      {
+        "field_id": "FLD_PAYMENT_METHOD",
+        "screen_id": "SCR_06_PAYMENT",
+        "label": "Выберите способ оплаты",
+        "component": "select",
+        "data_type": "string",
+        "required": true,
+        "dictionary_id": "DICT_PAYMENT_METHODS",
+        "storage": { "table": "payment", "column": "payment_method_id" }
+      },
+      {
+        "field_id": "FLD_PAYMENT_STATUS",
+        "screen_id": "SCR_06_PAYMENT",
+        "label": "Статус оплаты",
+        "component": "text_readonly",
+        "data_type": "string",
+        "required": false,
+        "read_only": true,
+        "storage": { "table": "payment", "column": "payment_status" }
+      }
+    ],
+    "actions": [
+      {
+        "action_id": "ACT_PAY",
+        "screen_id": "SCR_06_PAYMENT",
+        "label": "Оплатить",
+        "component": "button",
+        "enabled_when": "answers.FLD_PAYMENT_METHOD != null",
+        "effects": [
+          { "type": "set_value", "target_field_id": "FLD_PAYMENT_STATUS", "value_expr": "'PAID'" },
+          { "type": "set_value", "target_table": "policy", "target_column": "status", "value_expr": "'PAID'" }
+        ],
+        "ui_effects": [
+          { "type": "toast", "message": "Оплата прошла" },
+          { "type": "navigate", "target": "NEXT_SCREEN" }
+        ]
+      }
+    ]
+  },
+  "computed": [
+    {
+      "computed_id": "CMP_SANTA_COLD_RISK_LEVEL",
+      "label": "Риск простудных заболеваний",
+      "data_type": "string",
+      "expr": "answers.FLD_SANTA_AGE != null && answers.FLD_SANTA_AGE > 75 ? 'HIGH' : 'NORMAL'",
+      "persist_to": { "table": "santa_details", "column": "cold_risk_level" }
+    },
+    {
+      "computed_id": "CMP_SANTA_CHIMNEY_STUCK_RISK",
+      "label": "Риск застревания в дымоходе",
+      "data_type": "string",
+      "expr": "answers.FLD_SANTA_WEIGHT != null && answers.FLD_SANTA_WAIST != null && answers.FLD_SANTA_WEIGHT > 120 && answers.FLD_SANTA_WAIST > 150 ? 'HIGH' : 'NORMAL'",
+      "persist_to": { "table": "santa_details", "column": "chimney_stuck_risk" }
+    },
+    {
+      "computed_id": "CMP_ANY_REINDEER_FLAGS",
+      "label": "Есть повышающие факторы по оленям",
+      "data_type": "boolean",
+      "expr": "anySelected(coalesce(answers.FLD_REINDEER_FLAGS, []))"
+    },
+    {
+      "computed_id": "CMP_ANY_ELVES_FLAGS",
+      "label": "Есть повышающие факторы по эльфам",
+      "data_type": "boolean",
+      "expr": "anySelected(coalesce(answers.FLD_ELVES_FLAGS, []))"
+    },
+    {
+      "computed_id": "CMP_ANY_PROD_BREAK_FLAGS",
+      "label": "Есть повышающие факторы по перерыву в производстве",
+      "data_type": "boolean",
+      "expr": "anySelected(coalesce(answers.FLD_PROD_BREAK_FLAGS, []))"
+    },
+    {
+      "computed_id": "CMP_TPL_WHEREVER_SELECTED",
+      "label": "Выбрана парковка 'где получится'",
+      "data_type": "boolean",
+      "expr": "includes(coalesce(answers.FLD_TPL_PARKING, []), 'PARK_WHEREVER')"
+    }
+  ],
+  "pricing": {
+    "parameters": [
+      { "key": "BASE_RATE", "type": "decimal", "default": 0.015, "description": "Базовая ставка (доля от страховой суммы до учёта факторов)" },
+      { "key": "FACTOR_SANTA_COLD_HIGH", "type": "decimal", "default": 1.12, "description": "Мультипликатор, если возраст > 75" },
+      { "key": "FACTOR_SANTA_CHIMNEY_HIGH", "type": "decimal", "default": 1.10, "description": "Мультипликатор, если вес >120 и талия >150" },
+      { "key": "FACTOR_SLED_MANUAL", "type": "decimal", "default": 1.15, "description": "Мультипликатор для саней с ручным управлением" },
+      { "key": "FACTOR_BAG_FABRIC", "type": "decimal", "default": 1.10, "description": "Мультипликатор для тканевого мешка" },
+      { "key": "FACTOR_ANY_FLAGS_REINDEER", "type": "decimal", "default": 1.08, "description": "Мультипликатор при выборе любого флага по оленям" },
+      { "key": "FACTOR_ANY_FLAGS_ELVES", "type": "decimal", "default": 1.08, "description": "Мультипликатор при выборе любого флага по эльфам" },
+      { "key": "FACTOR_ANY_FLAGS_PROD_BREAK", "type": "decimal", "default": 1.10, "description": "Мультипликатор при выборе любого флага по перерыву" },
+      { "key": "FACTOR_TPL_WHEREVER", "type": "decimal", "default": 1.12, "description": "Мультипликатор при парковке 'где получится'" },
+      { "key": "FACTOR_PER_RISK_UNIT", "type": "decimal", "default": 0.02, "description": "Надбавка к тарифу за единицу веса выбранных рисков (кроме франшизы)" },
+      { "key": "DEDUCTIBLE_DISCOUNT_MAX", "type": "decimal", "default": 0.08, "description": "Максимальная скидка за франшизу (при верхнем значении франшизы)" }
+    ],
+    "tariff_formula": {
+      "tariff_total_expr": "pricing.base_rate * pricing.multipliers_product * (1 + pricing.risk_weight_sum * pricing.factor_per_risk_unit) * (1 - pricing.deductible_discount)",
+      "premium_total_expr": "round(answers.FLD_INSURED_SUM * pricing.tariff_total)",
+      "rounding": { "premium_total": "int", "method": "round" }
+    }
+  },
+  "rules": [
+    {
+      "rule_id": "R_VIS_SANTA",
+      "type": "visibility",
+      "when": "includes(answers.FLD_OBJECTS_SELECTED, 'OBJ_SANTA')",
+      "then": [
+        { "op": "set_visible", "field_id": "FLD_SANTA_AGE", "value": true },
+        { "op": "set_visible", "field_id": "FLD_SANTA_WEIGHT", "value": true },
+        { "op": "set_visible", "field_id": "FLD_SANTA_WAIST", "value": true }
+      ],
+      "else": [
+        { "op": "set_visible", "field_id": "FLD_SANTA_AGE", "value": false },
+        { "op": "set_visible", "field_id": "FLD_SANTA_WEIGHT", "value": false },
+        { "op": "set_visible", "field_id": "FLD_SANTA_WAIST", "value": false }
+      ]
+    },
+    {
+      "rule_id": "R_VIS_SLED",
+      "type": "visibility",
+      "when": "includes(answers.FLD_OBJECTS_SELECTED, 'OBJ_SLED')",
+      "then": [{ "op": "set_visible", "field_id": "FLD_SLED_TYPE", "value": true }],
+      "else": [{ "op": "set_visible", "field_id": "FLD_SLED_TYPE", "value": false }]
+    },
+    {
+      "rule_id": "R_VIS_BAG",
+      "type": "visibility",
+      "when": "includes(answers.FLD_OBJECTS_SELECTED, 'OBJ_BAG')",
+      "then": [{ "op": "set_visible", "field_id": "FLD_BAG_TYPE", "value": true }],
+      "else": [{ "op": "set_visible", "field_id": "FLD_BAG_TYPE", "value": false }]
+    },
+    {
+      "rule_id": "R_VIS_REINDEER",
+      "type": "visibility",
+      "when": "includes(answers.FLD_OBJECTS_SELECTED, 'OBJ_REINDEER')",
+      "then": [
+        { "op": "set_visible", "field_id": "FLD_REINDEER_COUNT", "value": true },
+        { "op": "set_visible", "field_id": "FLD_REINDEER_FLAGS", "value": true }
+      ],
+      "else": [
+        { "op": "set_visible", "field_id": "FLD_REINDEER_COUNT", "value": false },
+        { "op": "set_visible", "field_id": "FLD_REINDEER_FLAGS", "value": false }
+      ]
+    },
+    {
+      "rule_id": "R_VIS_ELVES",
+      "type": "visibility",
+      "when": "includes(answers.FLD_OBJECTS_SELECTED, 'OBJ_ELVES')",
+      "then": [
+        { "op": "set_visible", "field_id": "FLD_ELVES_COUNT", "value": true },
+        { "op": "set_visible", "field_id": "FLD_ELVES_FLAGS", "value": true }
+      ],
+      "else": [
+        { "op": "set_visible", "field_id": "FLD_ELVES_COUNT", "value": false },
+        { "op": "set_visible", "field_id": "FLD_ELVES_FLAGS", "value": false }
+      ]
+    },
+    {
+      "rule_id": "R_VIS_PROD_BREAK",
+      "type": "visibility",
+      "when": "includes(answers.FLD_OBJECTS_SELECTED, 'OBJ_PROD_BREAK')",
+      "then": [{ "op": "set_visible", "field_id": "FLD_PROD_BREAK_FLAGS", "value": true }],
+      "else": [{ "op": "set_visible", "field_id": "FLD_PROD_BREAK_FLAGS", "value": false }]
+    },
+    {
+      "rule_id": "R_VIS_TPL",
+      "type": "visibility",
+      "when": "includes(answers.FLD_OBJECTS_SELECTED, 'OBJ_TPL')",
+      "then": [{ "op": "set_visible", "field_id": "FLD_TPL_PARKING", "value": true }],
+      "else": [{ "op": "set_visible", "field_id": "FLD_TPL_PARKING", "value": false }]
+    },
+
+    {
+      "rule_id": "R_VIS_RISKS_GATING",
+      "type": "visibility",
+      "when": "true",
+      "then": [
+        {
+          "op": "set_visible",
+          "field_id": "FLD_RISKS_SLED",
+          "value_expr": "includes(answers.FLD_OBJECTS_SELECTED, 'OBJ_ALL_RISKS') || includes(answers.FLD_OBJECTS_SELECTED, 'OBJ_SLED')"
+        },
+        {
+          "op": "set_visible",
+          "field_id": "FLD_RISKS_REINDEER",
+          "value_expr": "includes(answers.FLD_OBJECTS_SELECTED, 'OBJ_ALL_RISKS') || includes(answers.FLD_OBJECTS_SELECTED, 'OBJ_REINDEER')"
+        },
+        {
+          "op": "set_visible",
+          "field_id": "FLD_RISKS_BAG",
+          "value_expr": "includes(answers.FLD_OBJECTS_SELECTED, 'OBJ_ALL_RISKS') || includes(answers.FLD_OBJECTS_SELECTED, 'OBJ_BAG')"
+        },
+        {
+          "op": "set_visible",
+          "field_id": "FLD_RISKS_ELVES",
+          "value_expr": "includes(answers.FLD_OBJECTS_SELECTED, 'OBJ_ALL_RISKS') || includes(answers.FLD_OBJECTS_SELECTED, 'OBJ_ELVES')"
+        },
+        {
+          "op": "set_visible",
+          "field_id": "FLD_RISKS_PROD_BREAK",
+          "value_expr": "includes(answers.FLD_OBJECTS_SELECTED, 'OBJ_ALL_RISKS') || includes(answers.FLD_OBJECTS_SELECTED, 'OBJ_PROD_BREAK')"
+        },
+        {
+          "op": "set_visible",
+          "field_id": "FLD_RISKS_TPL",
+          "value_expr": "includes(answers.FLD_OBJECTS_SELECTED, 'OBJ_ALL_RISKS') || includes(answers.FLD_OBJECTS_SELECTED, 'OBJ_TPL')"
+        },
+        { "op": "set_visible", "field_id": "FLD_RISKS_FORCE_MAJEURE", "value": true }
+      ]
+    },
+
+    {
+      "rule_id": "R_PRICE_ACCUMULATE",
+      "type": "pricing",
+      "when": "true",
+      "then": [
+        { "op": "pricing_reset" },
+
+        { "op": "pricing_set", "key": "base_rate", "value_expr": "params.BASE_RATE" },
+        { "op": "pricing_set", "key": "factor_per_risk_unit", "value_expr": "params.FACTOR_PER_RISK_UNIT" },
+
+        {
+          "op": "pricing_add_multiplier",
+          "code": "SANTA_COLD_HIGH",
+          "multiplier_expr": "computed.CMP_SANTA_COLD_RISK_LEVEL === 'HIGH' ? params.FACTOR_SANTA_COLD_HIGH : 1",
+          "note_expr": "computed.CMP_SANTA_COLD_RISK_LEVEL === 'HIGH' ? 'Возраст > 75: повышен риск простудных заболеваний' : null"
+        },
+        {
+          "op": "pricing_add_multiplier",
+          "code": "SANTA_CHIMNEY_HIGH",
+          "multiplier_expr": "computed.CMP_SANTA_CHIMNEY_STUCK_RISK === 'HIGH' ? params.FACTOR_SANTA_CHIMNEY_HIGH : 1",
+          "note_expr": "computed.CMP_SANTA_CHIMNEY_STUCK_RISK === 'HIGH' ? 'Вес >120 и талия >150: повышен риск застревания в дымоходе' : null"
+        },
+
+        {
+          "op": "pricing_add_multiplier",
+          "code": "SLED_MANUAL",
+          "multiplier_expr": "answers.FLD_SLED_TYPE === 'SLED_MANUAL' ? params.FACTOR_SLED_MANUAL : 1",
+          "note_expr": "answers.FLD_SLED_TYPE === 'SLED_MANUAL' ? 'Сани с ручным управлением: повышающий тариф' : null"
+        },
+        {
+          "op": "pricing_add_multiplier",
+          "code": "BAG_FABRIC",
+          "multiplier_expr": "answers.FLD_BAG_TYPE === 'BAG_FABRIC' ? params.FACTOR_BAG_FABRIC : 1",
+          "note_expr": "answers.FLD_BAG_TYPE === 'BAG_FABRIC' ? 'Тканевый мешок: повышающий тариф' : null"
+        },
+
+        {
+          "op": "pricing_add_multiplier",
+          "code": "REINDEER_FLAGS",
+          "multiplier_expr": "computed.CMP_ANY_REINDEER_FLAGS ? params.FACTOR_ANY_FLAGS_REINDEER : 1",
+          "note_expr": "computed.CMP_ANY_REINDEER_FLAGS ? 'Олени: выбран хотя бы один доп. параметр' : null"
+        },
+        {
+          "op": "pricing_add_multiplier",
+          "code": "ELVES_FLAGS",
+          "multiplier_expr": "computed.CMP_ANY_ELVES_FLAGS ? params.FACTOR_ANY_FLAGS_ELVES : 1",
+          "note_expr": "computed.CMP_ANY_ELVES_FLAGS ? 'Эльфы: выбран хотя бы один доп. параметр' : null"
+        },
+        {
+          "op": "pricing_add_multiplier",
+          "code": "PROD_BREAK_FLAGS",
+          "multiplier_expr": "computed.CMP_ANY_PROD_BREAK_FLAGS ? params.FACTOR_ANY_FLAGS_PROD_BREAK : 1",
+          "note_expr": "computed.CMP_ANY_PROD_BREAK_FLAGS ? 'Перерыв в производстве: выбран хотя бы один фактор' : null"
+        },
+        {
+          "op": "pricing_add_multiplier",
+          "code": "TPL_WHEREVER",
+          "multiplier_expr": "computed.CMP_TPL_WHEREVER_SELECTED ? params.FACTOR_TPL_WHEREVER : 1",
+          "note_expr": "computed.CMP_TPL_WHEREVER_SELECTED ? 'Парковка: где получится (повышенный риск)' : null"
+        },
+
+        {
+          "op": "pricing_set",
+          "key": "risk_weight_sum",
+          "value_expr": "sumRiskWeights(coalesce(answers.FLD_RISKS_SLED,[]),coalesce(answers.FLD_RISKS_REINDEER,[]),coalesce(answers.FLD_RISKS_BAG,[]),coalesce(answers.FLD_RISKS_ELVES,[]),coalesce(answers.FLD_RISKS_PROD_BREAK,[]),coalesce(answers.FLD_RISKS_TPL,[]),coalesce(answers.FLD_RISKS_FORCE_MAJEURE,[]))"
+        },
+
+        {
+          "op": "pricing_set",
+          "key": "deductible_discount",
+          "value_expr": "coalesce(answers.FLD_DEDUCTIBLE,0) <= 0 ? 0 : Math.min(params.DEDUCTIBLE_DISCOUNT_MAX, (coalesce(answers.FLD_DEDUCTIBLE,0) / 500000) * params.DEDUCTIBLE_DISCOUNT_MAX)"
+        },
+
+        {
+          "op": "pricing_compute",
+          "outputs": [
+            { "target_field_id": "FLD_TARIFF_TOTAL", "value_expr": "computeTariffTotal()" },
+            { "target_field_id": "FLD_PREMIUM_TOTAL", "value_expr": "computePremiumTotal()" },
+            { "target_field_id": "FLD_TARIFF_BREAKDOWN", "value_expr": "computeBreakdown()" }
+          ],
+          "persist": [
+            { "table": "policy", "column": "tariff_total", "value_expr": "computeTariffTotal()" },
+            { "table": "policy", "column": "premium_total", "value_expr": "computePremiumTotal()" }
+          ]
+        }
+      ]
+    }
+  ],
+  "extensions": {
+    "pricing_helpers_spec": {
+      "sumRiskWeights": {
+        "inputs": "arrays of risk_ids",
+        "logic": "lookup each risk_id in DICT_RISKS.items and sum item.weight"
+      },
+      "computeTariffTotal": {
+        "logic": "BASE_RATE * multipliers_product * (1 + risk_weight_sum * FACTOR_PER_RISK_UNIT) * (1 - deductible_discount)"
+      },
+      "computePremiumTotal": {
+        "logic": "round(insured_sum * tariff_total)"
+      },
+      "computeBreakdown": {
+        "logic": "return an object with base_rate, multipliers (codes, values, notes), risk_weight_sum, factor_per_risk_unit, deductible_discount, tariff_total, premium_total"
+      }
+    }
+  }
+}
